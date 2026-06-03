@@ -1,0 +1,14 @@
+#/etc/systemd/system/jwt-lab.service
+
+[Unit]
+Description=JWT Lab FastAPI Backend
+After=network.target
+
+[Service]
+User=utn-hacking
+WorkingDirectory=/home/utn-hacking/jwt-lab
+ExecStart=/home/utn-hacking/jwt-lab/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

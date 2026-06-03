@@ -1,0 +1,165 @@
+<!-- /home/utn-hacking/jwt-lab/dashboard.html -->
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JWT Lab — Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; font-size: 14px; }
+  header { padding: 14px 20px; border-bottom: 1px solid #1e2433; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: .02em; color: #fff; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 14px 20px; }
+  .stat { background: #1a1f2e; border: 1px solid #1e2433; border-radius: 8px; padding: 12px 14px; }
+  .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 600; color: #fff; }
+  .stat-value.ok { color: #22c55e; }
+  .stat-value.warn { color: #f59e0b; }
+  .stat-value.danger { color: #ef4444; }
+  .controls { padding: 0 20px 10px; display: flex; gap: 8px; align-items: center; }
+  .btn { background: #1a1f2e; border: 1px solid #2d3548; color: #94a3b8; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+  .btn:hover { background: #252b3b; color: #e2e8f0; }
+  .btn.active { border-color: #3b82f6; color: #60a5fa; }
+  select { background: #1a1f2e; border: 1px solid #2d3548; color: #94a3b8; border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+  #log-container { padding: 0 20px 20px; }
+  #log-list { display: flex; flex-direction: column; gap: 6px; }
+  .entry { background: #1a1f2e; border: 1px solid #1e2433; border-radius: 8px; padding: 10px 14px; border-left: 3px solid #2d3548; cursor: pointer; transition: border-color .15s; }
+  .entry:hover { border-color: #3b82f6; }
+  .entry.attack { border-left-color: #ef4444; background: #1f1420; }
+  .entry.ok { border-left-color: #22c55e; }
+  .entry.warn { border-left-color: #f59e0b; }
+  .entry-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; letter-spacing: .04em; }
+  .badge-200 { background: #14532d; color: #4ade80; }
+  .badge-401 { background: #7f1d1d; color: #fca5a5; }
+  .badge-403 { background: #78350f; color: #fcd34d; }
+  .badge-attack { background: #450a0a; color: #f87171; }
+  .badge-method { background: #1e3a5f; color: #93c5fd; }
+  .entry-path { color: #94a3b8; font-family: monospace; font-size: 13px; }
+  .entry-time { color: #475569; font-size: 11px; margin-left: auto; }
+  .entry-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e2433; display: none; }
+  .entry-detail.open { display: block; }
+  .payload { background: #0d1117; border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 12px; color: #7dd3fc; white-space: pre-wrap; word-break: break-all; }
+  .entry-ip { color: #475569; font-size: 11px; font-family: monospace; }
+  .empty { text-align: center; padding: 40px; color: #475569; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span> JWT Lab — Monitor de peticiones</h1>
+  <span id="conn-status" style="font-size:12px; color:#64748b">conectando…</span>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="stat-label">Total</div><div class="stat-value" id="s-total">0</div></div>
+  <div class="stat"><div class="stat-label">Exitosas</div><div class="stat-value ok" id="s-ok">0</div></div>
+  <div class="stat"><div class="stat-label">Rechazadas</div><div class="stat-value warn" id="s-fail">0</div></div>
+  <div class="stat"><div class="stat-label">Ataques</div><div class="stat-value danger" id="s-attack">0</div></div>
+</div>
+
+<div class="controls">
+  <button class="btn active" id="btn-all" onclick="setFilter('all')">Todos</button>
+  <button class="btn" id="btn-attack" onclick="setFilter('attack')">Solo ataques</button>
+  <button class="btn" id="btn-fail" onclick="setFilter('fail')">Solo rechazados</button>
+  <button class="btn" onclick="clearAll()">Limpiar</button>
+  <select id="limit-select" onchange="render()">
+    <option value="50">Últimos 50</option>
+    <option value="100">Últimos 100</option>
+    <option value="200" selected>Últimos 200</option>
+  </select>
+</div>
+
+<div id="log-container">
+  <div id="log-list"><div class="empty">Esperando peticiones al lab…</div></div>
+</div>
+
+<script>
+let events = [], filter = 'all', stats = {total:0, ok:0, fail:0, attack:0};
+
+function setFilter(f) {
+  filter = f;
+  ['all','attack','fail'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x===f));
+  render();
+}
+
+function clearAll() { events = []; stats = {total:0,ok:0,fail:0,attack:0}; updateStats(); render(); }
+
+function updateStats() {
+  document.getElementById('s-total').textContent = stats.total;
+  document.getElementById('s-ok').textContent = stats.ok;
+  document.getElementById('s-fail').textContent = stats.fail;
+  document.getElementById('s-attack').textContent = stats.attack;
+}
+
+function badgeStatus(s) {
+  if (!s) return '';
+  const cls = s===200?'badge-200':s===401?'badge-401':s===403?'badge-403':'badge-401';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+
+function entryClass(ev) {
+  if (ev.attack_detected) return 'attack';
+  if (ev.status >= 200 && ev.status < 300) return 'ok';
+  return 'warn';
+}
+
+function render() {
+  const limit = parseInt(document.getElementById('limit-select').value);
+  let list = events.slice(-limit);
+  if (filter==='attack') list = list.filter(e => e.attack_detected);
+  if (filter==='fail') list = list.filter(e => e.status >= 400);
+  list = list.reverse();
+
+  const el = document.getElementById('log-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">Sin entradas para este filtro</div>'; return; }
+
+  el.innerHTML = list.map((ev, i) => {
+    const ts = ev.ts ? ev.ts.substring(11,19) : '';
+    const attackBadge = ev.attack_detected
+      ? `<span class="badge badge-attack"><i style="margin-right:2px">!</i>${ev.attack_detected}</span>` : '';
+    const payload = ev.token_decode ? JSON.stringify(ev.token_decode, null, 2) : 'sin token';
+    return `<div class="entry ${entryClass(ev)}" onclick="toggleDetail(this)">
+      <div class="entry-header">
+        <span class="badge badge-method">${ev.method||'?'}</span>
+        <span class="entry-path">${ev.path||'/'}</span>
+        ${badgeStatus(ev.status)}
+        ${attackBadge}
+        <span class="entry-time">${ts}</span>
+      </div>
+      <div class="entry-detail">
+        <div style="margin-bottom:6px" class="entry-ip">IP: ${ev.ip||'?'} &nbsp;|&nbsp; Token: ${ev.token_raw ? ev.token_raw.substring(0,40)+'…' : 'ninguno'}</div>
+        <div class="payload">${escHtml(payload)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDetail(el) {
+  el.querySelector('.entry-detail').classList.toggle('open');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const es = new EventSource('/dashboard/stream');
+es.onopen = () => document.getElementById('conn-status').textContent = 'en vivo';
+es.onerror = () => document.getElementById('conn-status').textContent = 'desconectado — reintentando…';
+es.onmessage = (e) => {
+  const ev = JSON.parse(e.data);
+  events.push(ev);
+  stats.total++;
+  if (ev.attack_detected) stats.attack++;
+  else if (ev.status >= 200 && ev.status < 300) stats.ok++;
+  else stats.fail++;
+  updateStats();
+  render();
+};
+</script>
+</body>
+</html>

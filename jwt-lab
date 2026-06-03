@@ -1,0 +1,39 @@
+#/etc/nginx/sites-available/jwt-lab
+server {
+    listen 443 ssl http2;
+    server_name _;
+
+    ssl_certificate     /etc/nginx/ssl/lab.crt;
+    ssl_certificate_key /etc/nginx/ssl/lab.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # Logs detallados — aquí verán el Bearer token en crudo
+    access_log /var/log/nginx/jwt-lab-access.log combined;
+    error_log  /var/log/nginx/jwt-lab-error.log debug;
+
+    location / {
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Authorization  $http_authorization;
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host            $host;
+    }
+
+    location /dashboard/stream {
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_buffering    off;          
+        proxy_cache        off;
+        proxy_read_timeout 3600s;
+        proxy_set_header   Authorization $http_authorization;
+        proxy_set_header   X-Real-IP     $remote_addr;
+    }
+}
+
+# Redirigir HTTP → HTTPS
+server {
+    listen 80;
+    return 301 https://$host$request_uri;
+}
