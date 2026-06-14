@@ -17,7 +17,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(message)s'
 )
-
 def log_event(event: dict):
     logging.info(json.dumps(event))
 
@@ -133,3 +132,22 @@ async def stream_logs(request: Request):
 async def dashboard():
     with open("/home/utn-hacking/jwt-lab/dashboard.html") as f:
         return f.read()
+
+# ─── Endpoint VULNERABLE (solo para demostrar el ataque) ──────
+@app.get("/admin-vulnerable")
+def admin_vulnerable(request: Request):
+    """Versión sin protección — demuestra el ataque exitoso"""
+    token = request.headers.get("authorization", "").replace("Bearer ", "")
+    if not token:
+        raise HTTPException(401, "Token requerido")
+    try:
+        # ⚠️  NO verifica firma — vulnerable a payload tampering
+        payload = jwt.decode(
+            token, SECRET_KEY, algorithms=["HS256", "none"],
+            options={"verify_signature": False, "verify_exp": False}
+        )
+        if payload.get("role") != "admin":
+            raise HTTPException(403, "Solo admins")
+        return {"msg": "🚨 ADMIN ACCESO CONCEDIDO — ataque exitoso", "user": payload}
+    except JWTError as e:
+        raise HTTPException(401, f"Token inválido: {e}")
