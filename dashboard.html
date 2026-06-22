@@ -5,160 +5,158 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JWT Lab — Dashboard</title>
+<title>JWT Lab — Entorno CTF</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; font-size: 14px; }
-  header { padding: 14px 20px; border-bottom: 1px solid #1e2433; display: flex; align-items: center; justify-content: space-between; }
-  header h1 { font-size: 15px; font-weight: 600; letter-spacing: .02em; color: #fff; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 14px 20px; }
-  .stat { background: #1a1f2e; border: 1px solid #1e2433; border-radius: 8px; padding: 12px 14px; }
-  .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
-  .stat-value { font-size: 22px; font-weight: 600; color: #fff; }
-  .stat-value.ok { color: #22c55e; }
-  .stat-value.warn { color: #f59e0b; }
-  .stat-value.danger { color: #ef4444; }
-  .controls { padding: 0 20px 10px; display: flex; gap: 8px; align-items: center; }
-  .btn { background: #1a1f2e; border: 1px solid #2d3548; color: #94a3b8; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
-  .btn:hover { background: #252b3b; color: #e2e8f0; }
-  .btn.active { border-color: #3b82f6; color: #60a5fa; }
-  select { background: #1a1f2e; border: 1px solid #2d3548; color: #94a3b8; border-radius: 6px; padding: 5px 8px; font-size: 12px; }
-  #log-container { padding: 0 20px 20px; }
-  #log-list { display: flex; flex-direction: column; gap: 6px; }
-  .entry { background: #1a1f2e; border: 1px solid #1e2433; border-radius: 8px; padding: 10px 14px; border-left: 3px solid #2d3548; cursor: pointer; transition: border-color .15s; }
-  .entry:hover { border-color: #3b82f6; }
-  .entry.attack { border-left-color: #ef4444; background: #1f1420; }
-  .entry.ok { border-left-color: #22c55e; }
-  .entry.warn { border-left-color: #f59e0b; }
-  .entry-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; letter-spacing: .04em; }
-  .badge-200 { background: #14532d; color: #4ade80; }
-  .badge-401 { background: #7f1d1d; color: #fca5a5; }
-  .badge-403 { background: #78350f; color: #fcd34d; }
-  .badge-attack { background: #450a0a; color: #f87171; }
-  .badge-method { background: #1e3a5f; color: #93c5fd; }
-  .entry-path { color: #94a3b8; font-family: monospace; font-size: 13px; }
-  .entry-time { color: #475569; font-size: 11px; margin-left: auto; }
-  .entry-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid #1e2433; display: none; }
+  body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; font-size: 14px; height: 100vh; overflow: hidden; display: flex; flex-direction: column;}
+  header { padding: 14px 20px; border-bottom: 1px solid #1e2433; display: flex; justify-content: space-between; background: #0b0d13;}
+  header h1 { font-size: 16px; font-weight: 600; color: #fff; }
+  
+  .split-container { display: flex; flex: 1; overflow: hidden; }
+  .panel { width: 50%; overflow-y: auto; padding: 20px; }
+  .left-panel { border-right: 2px solid #1e2433; background: #0f1117; }
+  .right-panel { background: #151923; }
+  
+  h2 { font-size: 15px; margin-bottom: 15px; color: #94a3b8; border-bottom: 1px solid #1e2433; padding-bottom: 8px;}
+  
+  /* Estilos Monitor (Izquierda) */
+  #log-list { display: flex; flex-direction: column; gap: 8px; }
+  .entry { background: #1a1f2e; border: 1px solid #1e2433; border-radius: 6px; padding: 10px; cursor: pointer; }
+  .entry.attack { border-left: 4px solid #ef4444; } .entry.ok { border-left: 4px solid #22c55e; } .entry.warn { border-left: 4px solid #f59e0b; }
+  .badge { font-size: 11px; padding: 3px 6px; border-radius: 4px; font-weight: bold;}
+  .badge-200 { background: #14532d; color: #4ade80; } .badge-401, .badge-403 { background: #7f1d1d; color: #fca5a5; } .badge-attack { background: #450a0a; color: #f87171; }
+  .entry-detail { display: none; margin-top: 10px; font-family: monospace; font-size: 12px; color: #7dd3fc; background: #0b0d13; padding: 10px; border-radius: 4px;}
   .entry-detail.open { display: block; }
-  .payload { background: #0d1117; border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 12px; color: #7dd3fc; white-space: pre-wrap; word-break: break-all; }
-  .entry-ip { color: #475569; font-size: 11px; font-family: monospace; }
-  .empty { text-align: center; padding: 40px; color: #475569; font-size: 13px; }
+  
+  /* Estilos App (Derecha) */
+  .form-group { margin-bottom: 15px; }
+  input[type="text"], input[type="password"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #2d3548; background: #0f1117; color: white; margin-top: 5px;}
+  button { width: 100%; padding: 10px; border-radius: 6px; border: none; background: #3b82f6; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px;}
+  button:hover { background: #2563eb; }
+  button.danger { background: #ef4444; } button.danger:hover { background: #dc2626; }
+  
+  .card { background: #1a1f2e; border: 1px solid #2d3548; border-radius: 8px; padding: 20px; margin-bottom: 20px;}
+  textarea { width: 100%; height: 80px; background: #0b0d13; color: #4ade80; border: 1px solid #2d3548; padding: 10px; font-family: monospace; font-size: 11px; resize: none; margin-bottom: 10px;}
+  #response-box { background: #0b0d13; color: #e2e8f0; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; min-height: 50px; white-space: pre-wrap;}
 </style>
 </head>
 <body>
-
 <header>
-  <h1><span class="dot"></span> JWT Lab — Monitor de peticiones</h1>
-  <span id="conn-status" style="font-size:12px; color:#64748b">conectando…</span>
+  <h1>JWT Lab — Observabilidad y Explotación</h1>
+  <span id="conn-status" style="color:#64748b">conectando SSE…</span>
 </header>
 
-<div class="stats">
-  <div class="stat"><div class="stat-label">Total</div><div class="stat-value" id="s-total">0</div></div>
-  <div class="stat"><div class="stat-label">Exitosas</div><div class="stat-value ok" id="s-ok">0</div></div>
-  <div class="stat"><div class="stat-label">Rechazadas</div><div class="stat-value warn" id="s-fail">0</div></div>
-  <div class="stat"><div class="stat-label">Ataques</div><div class="stat-value danger" id="s-attack">0</div></div>
-</div>
+<div class="split-container">
+  <div class="panel left-panel">
+    <h2>Tráfico en Tiempo Real</h2>
+    <div id="log-list"><div style="color: #64748b; text-align: center; margin-top: 20px;">Esperando peticiones...</div></div>
+  </div>
 
-<div class="controls">
-  <button class="btn active" id="btn-all" onclick="setFilter('all')">Todos</button>
-  <button class="btn" id="btn-attack" onclick="setFilter('attack')">Solo ataques</button>
-  <button class="btn" id="btn-fail" onclick="setFilter('fail')">Solo rechazados</button>
-  <button class="btn" onclick="clearAll()">Limpiar</button>
-  <select id="limit-select" onchange="render()">
-    <option value="50">Últimos 50</option>
-    <option value="100">Últimos 100</option>
-    <option value="200" selected>Últimos 200</option>
-  </select>
-</div>
+  <div class="panel right-panel">
+    <h2>Aplicación Vulnerable</h2>
+    
+    <div class="card" id="login-section">
+      <h3 style="margin-bottom: 10px; color: #fff;">Iniciar Sesión</h3>
+      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 15px;">Usuarios de prueba: alumno1/1234 | admin/admin123</p>
+      <div class="form-group">
+        <label>Usuario:</label>
+        <input type="text" id="username" value="alumno1">
+      </div>
+      <div class="form-group">
+        <label>Contraseña:</label>
+        <input type="password" id="password" value="1234">
+      </div>
+      <button onclick="doLogin()">Ingresar</button>
+    </div>
 
-<div id="log-container">
-  <div id="log-list"><div class="empty">Esperando peticiones al lab…</div></div>
+    <div class="card" id="app-section" style="display: none;">
+      <h3 style="margin-bottom: 10px; color: #fff;">Panel de Control</h3>
+      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 5px;">Tu Token JWT actual (Cópialo para explotarlo):</p>
+      <textarea id="token-box" readonly></textarea>
+      
+      <div style="display: flex; gap: 10px;">
+        <button onclick="fetchData('/private')">Test: Zona User</button>
+        <button onclick="fetchData('/admin')">Test: Zona Admin (Segura)</button>
+      </div>
+      <button class="danger" onclick="fetchData('/admin-vulnerable')">Test: Zona Admin (Vulnerable)</button>
+      <button style="background: #475569;" onclick="logout()">Cerrar Sesión</button>
+      
+      <h4 style="margin-top: 15px; margin-bottom: 5px; color: #94a3b8;">Respuesta del Servidor:</h4>
+      <div id="response-box">...</div>
+    </div>
+  </div>
 </div>
 
 <script>
-let events = [], filter = 'all', stats = {total:0, ok:0, fail:0, attack:0};
+// --- Lógica Frontend App ---
+let currentToken = localStorage.getItem('jwt_token') || null;
+if(currentToken) showApp();
 
-function setFilter(f) {
-  filter = f;
-  ['all','attack','fail'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x===f));
-  render();
+async function doLogin() {
+  const u = document.getElementById('username').value;
+  const p = document.getElementById('password').value;
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: u, password: p})
+  });
+  const data = await res.json();
+  if(res.ok) {
+    currentToken = data.token;
+    localStorage.setItem('jwt_token', currentToken);
+    showApp();
+  } else {
+    alert(data.detail || "Error al iniciar sesión");
+  }
 }
 
-function clearAll() { events = []; stats = {total:0,ok:0,fail:0,attack:0}; updateStats(); render(); }
-
-function updateStats() {
-  document.getElementById('s-total').textContent = stats.total;
-  document.getElementById('s-ok').textContent = stats.ok;
-  document.getElementById('s-fail').textContent = stats.fail;
-  document.getElementById('s-attack').textContent = stats.attack;
+function showApp() {
+  document.getElementById('login-section').style.display = 'none';
+  document.getElementById('app-section').style.display = 'block';
+  document.getElementById('token-box').value = currentToken;
+  document.getElementById('response-box').innerText = "...";
 }
 
-function badgeStatus(s) {
-  if (!s) return '';
-  const cls = s===200?'badge-200':s===401?'badge-401':s===403?'badge-403':'badge-401';
-  return `<span class="badge ${cls}">${s}</span>`;
+function logout() {
+  currentToken = null;
+  localStorage.removeItem('jwt_token');
+  document.getElementById('login-section').style.display = 'block';
+  document.getElementById('app-section').style.display = 'none';
 }
 
-function entryClass(ev) {
-  if (ev.attack_detected) return 'attack';
-  if (ev.status >= 200 && ev.status < 300) return 'ok';
-  return 'warn';
+async function fetchData(route) {
+  const box = document.getElementById('response-box');
+  box.innerText = "Cargando...";
+  try {
+    const res = await fetch(route, {
+      headers: {'Authorization': 'Bearer ' + currentToken}
+    });
+    const data = await res.json();
+    box.innerText = `Status: ${res.status}\n\n${JSON.stringify(data, null, 2)}`;
+  } catch (e) {
+    box.innerText = "Error de conexión";
+  }
 }
 
-function render() {
-  const limit = parseInt(document.getElementById('limit-select').value);
-  let list = events.slice(-limit);
-  if (filter==='attack') list = list.filter(e => e.attack_detected);
-  if (filter==='fail') list = list.filter(e => e.status >= 400);
-  list = list.reverse();
-
+// --- Lógica SSE (Observabilidad) ---
+let events = [];
+function renderLogs() {
   const el = document.getElementById('log-list');
-  if (!list.length) { el.innerHTML = '<div class="empty">Sin entradas para este filtro</div>'; return; }
-
-  el.innerHTML = list.map((ev, i) => {
-    const ts = ev.ts ? ev.ts.substring(11,19) : '';
-    const attackBadge = ev.attack_detected
-      ? `<span class="badge badge-attack"><i style="margin-right:2px">!</i>${ev.attack_detected}</span>` : '';
-    const payload = ev.token_decode ? JSON.stringify(ev.token_decode, null, 2) : 'sin token';
-    return `<div class="entry ${entryClass(ev)}" onclick="toggleDetail(this)">
-      <div class="entry-header">
-        <span class="badge badge-method">${ev.method||'?'}</span>
-        <span class="entry-path">${ev.path||'/'}</span>
-        ${badgeStatus(ev.status)}
-        ${attackBadge}
-        <span class="entry-time">${ts}</span>
-      </div>
-      <div class="entry-detail">
-        <div style="margin-bottom:6px" class="entry-ip">IP: ${ev.ip||'?'} &nbsp;|&nbsp; Token: ${ev.token_raw ? ev.token_raw.substring(0,40)+'…' : 'ninguno'}</div>
-        <div class="payload">${escHtml(payload)}</div>
-      </div>
+  el.innerHTML = events.slice(-30).reverse().map(ev => {
+    const cls = ev.attack_detected ? 'attack' : (ev.status >= 200 && ev.status < 300 ? 'ok' : 'warn');
+    const badge = ev.status===200?'badge-200':(ev.status===401||ev.status===403?'badge-401':'badge-attack');
+    return `<div class="entry ${cls}" onclick="this.querySelector('.entry-detail').classList.toggle('open')">
+      <div><strong>${ev.method}</strong> ${ev.path} <span class="badge ${badge}">${ev.status}</span> ${ev.attack_detected ? '<span class="badge badge-attack">'+ev.attack_detected+'</span>' : ''}</div>
+      <div class="entry-detail">IP: ${ev.ip} <br><br>Token Decodificado:<br>${JSON.stringify(ev.token_decode, null, 2)}</div>
     </div>`;
   }).join('');
 }
 
-function toggleDetail(el) {
-  el.querySelector('.entry-detail').classList.toggle('open');
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 const es = new EventSource('/dashboard/stream');
-es.onopen = () => document.getElementById('conn-status').textContent = 'en vivo';
-es.onerror = () => document.getElementById('conn-status').textContent = 'desconectado — reintentando…';
+es.onopen = () => document.getElementById('conn-status').textContent = 'SSE Conectado';
 es.onmessage = (e) => {
-  const ev = JSON.parse(e.data);
-  events.push(ev);
-  stats.total++;
-  if (ev.attack_detected) stats.attack++;
-  else if (ev.status >= 200 && ev.status < 300) stats.ok++;
-  else stats.fail++;
-  updateStats();
-  render();
+  events.push(JSON.parse(e.data));
+  renderLogs();
 };
 </script>
 </body>
